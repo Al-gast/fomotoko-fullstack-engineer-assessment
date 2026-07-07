@@ -12,6 +12,19 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        $orders = Order::query()
+            ->with('items.product')
+            ->latest()
+            ->paginate(10);
+
+        return response()->json([
+            'message' => 'Orders retrieved successfully',
+            'data' => $orders,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
