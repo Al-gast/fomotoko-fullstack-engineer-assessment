@@ -2,10 +2,30 @@
 
 Laravel solution for the Fomotoko Fullstack Engineer Assessment.
 
-This repository contains two parts:
+This repository contains:
 
-1. Online Store API
-2. Hidden Item CLI Program
+1. **Task 1: Online Store API**
+2. **Task 2: Hidden Item CLI Program**
+
+## Public API
+
+The API is publicly accessible at:
+
+```txt
+https://fomotoko-fullstack-engineer-agastyo.up.railway.app
+```
+
+Example:
+
+```bash
+curl https://fomotoko-fullstack-engineer-agastyo.up.railway.app/api/products
+```
+
+## Repository
+
+```txt
+https://github.com/Al-gast/fomotoko-fullstack-engineer-assessment
+```
 
 ## Tech Stack
 
@@ -13,21 +33,12 @@ This repository contains two parts:
 - Laravel
 - PostgreSQL
 - Supabase PostgreSQL
-- Guzzle HTTP Client for the race condition test
-
-## Public API
-
-Public API URL:
-
-```txt
-TBD after deployment
-```
-
-After deployment, replace the value above with the live API URL.
+- Guzzle HTTP Client for race condition testing
+- Railway for public deployment
 
 ## Task 1: Online Store API
 
-The Online Store API covers product listing, product creation, order creation, and order listing.
+The Online Store API supports product listing, product creation, product detail, order listing, order creation, and order detail.
 
 Main business rules:
 
@@ -39,7 +50,7 @@ Main business rules:
 
 The order creation process uses a database transaction and row-level locking.
 
-When an order is created, the related product row is locked before stock is checked and reduced:
+When an order is created, the selected product row is locked before stock is checked and reduced:
 
 ```php
 Product::where('id', $productId)
@@ -47,7 +58,7 @@ Product::where('id', $productId)
     ->first();
 ```
 
-This prevents multiple concurrent requests from reading and reducing the same stock at the same time.
+This prevents multiple concurrent requests from reading and reducing the same stock value at the same time.
 
 The database also has `CHECK` constraints to prevent negative stock at the database level.
 
@@ -69,7 +80,23 @@ The database also has `CHECK` constraints to prevent negative stock at the datab
 | POST | `/api/orders` | Create an order |
 | GET | `/api/orders/{order}` | Get order detail |
 
-## Example: Create Product
+## API Examples
+
+### Get Products
+
+Local:
+
+```bash
+curl http://127.0.0.1:8000/api/products
+```
+
+Public:
+
+```bash
+curl https://fomotoko-fullstack-engineer-agastyo.up.railway.app/api/products
+```
+
+### Create Product
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/products \
@@ -89,7 +116,7 @@ Expected status code:
 201 Created
 ```
 
-## Example: Create Order
+### Create Order
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/orders \
@@ -122,6 +149,8 @@ Example response:
     "status": "created",
     "items": [
       {
+        "id": 1,
+        "order_id": 1,
         "product_id": 1,
         "quantity": 1,
         "unit_price": 25000,
@@ -132,7 +161,7 @@ Example response:
 }
 ```
 
-## Example: Insufficient Stock
+### Insufficient Stock
 
 If the requested quantity is higher than the available stock, the API returns:
 
@@ -153,6 +182,25 @@ Example response:
 }
 ```
 
+### Invalid Order Without Items
+
+An order must contain at least one item.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "items": []
+  }'
+```
+
+Expected status code:
+
+```txt
+422 Unprocessable Entity
+```
+
 ## Race Condition Test
 
 This project includes a command-line functional test that sends many order requests at the same time.
@@ -163,7 +211,7 @@ Start the local API server first:
 php artisan serve
 ```
 
-Then run the test:
+Then run:
 
 ```bash
 php artisan test:race-condition --requests=50 --stock=10 --quantity=1 --concurrency=5
@@ -182,6 +230,17 @@ PASSED: API berhasil mencegah stok menjadi negatif saat request bersamaan.
 ```
 
 This means only 10 orders are created from 50 concurrent requests because the initial stock is 10.
+
+### Run Race Condition Test Against Public API
+
+```bash
+php artisan test:race-condition \
+  --base-url=https://fomotoko-fullstack-engineer-agastyo.up.railway.app \
+  --requests=50 \
+  --stock=10 \
+  --quantity=1 \
+  --concurrency=5
+```
 
 ## Task 2: Hidden Item CLI Program
 
@@ -204,7 +263,7 @@ East B step(s)
 South C step(s)
 ```
 
-### Run with All Possible Steps
+### Run With All Possible Steps
 
 The assessment does not provide exact values for A, B, and C, so the default mode tries all valid combinations.
 
@@ -230,7 +289,7 @@ Probable item locations:
 
 The command also displays the grid with probable item locations marked using `$`.
 
-### Run with Exact Steps
+### Run With Exact Steps
 
 ```bash
 php artisan hidden-item:solve --up=1 --right=2 --down=1
@@ -246,6 +305,18 @@ Probable item locations:
 +-----+--------+
 | 5   | 4      |
 +-----+--------+
+```
+
+### Invalid Route Example
+
+```bash
+php artisan hidden-item:solve --up=2 --right=4 --down=1
+```
+
+Expected result:
+
+```txt
+Tidak ada kemungkinan lokasi item.
 ```
 
 ## Installation
@@ -311,6 +382,34 @@ Local API base URL:
 http://127.0.0.1:8000
 ```
 
+## Environment Variables
+
+Required variables:
+
+```env
+APP_NAME="Fomotoko Fullstack Engineer Assessment"
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+DB_CONNECTION=pgsql
+DB_HOST=
+DB_PORT=5432
+DB_DATABASE=postgres
+DB_USERNAME=
+DB_PASSWORD=
+DB_SSLMODE=require
+```
+
+For production deployment, set:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://fomotoko-fullstack-engineer-agastyo.up.railway.app
+```
+
 ## Useful Commands
 
 List registered routes:
@@ -341,4 +440,6 @@ php artisan hidden-item:solve --up=1 --right=2 --down=1
 
 - Supabase is used only as a PostgreSQL database provider.
 - API logic, validation, transaction handling, and race condition protection are implemented in Laravel.
+- Order items are created through the order creation endpoint, not through a separate order item endpoint.
 - `.env` is ignored and should not be committed.
+- The public API is deployed on Railway.
