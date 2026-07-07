@@ -1,64 +1,344 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Fomotoko Fullstack Engineer Assessment
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel solution for the Fomotoko Fullstack Engineer Assessment.
 
-## About Laravel
+This repository contains two parts:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+1. Online Store API
+2. Hidden Item CLI Program
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Tech Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP
+- Laravel
+- PostgreSQL
+- Supabase PostgreSQL
+- Guzzle HTTP Client for the race condition test
 
-## Learning Laravel
+## Public API
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Public API URL:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```txt
+TBD after deployment
+```
 
-## Laravel Sponsors
+After deployment, replace the value above with the live API URL.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+## Task 1: Online Store API
 
-### Premium Partners
+The Online Store API covers product listing, product creation, order creation, and order listing.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+Main business rules:
 
-## Contributing
+- An order must contain at least one order item.
+- Product stock must never become negative.
+- The order creation flow must be safe during concurrent flash sale requests.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Race Condition Handling
 
-## Code of Conduct
+The order creation process uses a database transaction and row-level locking.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+When an order is created, the related product row is locked before stock is checked and reduced:
 
-## Security Vulnerabilities
+```php
+Product::where('id', $productId)
+    ->lockForUpdate()
+    ->first();
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+This prevents multiple concurrent requests from reading and reducing the same stock at the same time.
 
-## License
+The database also has `CHECK` constraints to prevent negative stock at the database level.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## API Endpoints
+
+### Products
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/products` | Get all products |
+| POST | `/api/products` | Create a product |
+| GET | `/api/products/{product}` | Get product detail |
+
+### Orders
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/orders` | Get paginated order list |
+| POST | `/api/orders` | Create an order |
+| GET | `/api/orders/{order}` | Get order detail |
+
+## Example: Create Product
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/products \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "name": "Flash Sale Product",
+    "price": 100000,
+    "sale_price": 25000,
+    "stock": 10
+  }'
+```
+
+Expected status code:
+
+```txt
+201 Created
+```
+
+## Example: Create Order
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "items": [
+      {
+        "product_id": 1,
+        "quantity": 1
+      }
+    ]
+  }'
+```
+
+Expected status code:
+
+```txt
+201 Created
+```
+
+Example response:
+
+```json
+{
+  "message": "Order created successfully",
+  "data": {
+    "id": 1,
+    "total_price": 25000,
+    "status": "created",
+    "items": [
+      {
+        "product_id": 1,
+        "quantity": 1,
+        "unit_price": 25000,
+        "subtotal": 25000
+      }
+    ]
+  }
+}
+```
+
+## Example: Insufficient Stock
+
+If the requested quantity is higher than the available stock, the API returns:
+
+```txt
+409 Conflict
+```
+
+Example response:
+
+```json
+{
+  "message": "Insufficient stock",
+  "errors": {
+    "product_id": 1,
+    "requested_quantity": 1,
+    "available_stock": 0
+  }
+}
+```
+
+## Race Condition Test
+
+This project includes a command-line functional test that sends many order requests at the same time.
+
+Start the local API server first:
+
+```bash
+php artisan serve
+```
+
+Then run the test:
+
+```bash
+php artisan test:race-condition --requests=50 --stock=10 --quantity=1 --concurrency=5
+```
+
+Expected result:
+
+```txt
+201 Created        : 10
+409 Stock Conflict : 40
+Failed requests    : 0
+Created order item : 10
+Final stock        : 0
+
+PASSED: API berhasil mencegah stok menjadi negatif saat request bersamaan.
+```
+
+This means only 10 orders are created from 50 concurrent requests because the initial stock is 10.
+
+## Task 2: Hidden Item CLI Program
+
+The Hidden Item program solves a simple grid-based movement problem.
+
+Grid symbols:
+
+| Symbol | Meaning |
+|---|---|
+| `#` | Obstacle |
+| `.` | Clear path |
+| `X` | Player starting position |
+| `$` | Probable hidden item location |
+
+Movement order:
+
+```txt
+North A step(s)
+East B step(s)
+South C step(s)
+```
+
+### Run with All Possible Steps
+
+The assessment does not provide exact values for A, B, and C, so the default mode tries all valid combinations.
+
+```bash
+php artisan hidden-item:solve
+```
+
+Example output:
+
+```txt
+Probable item locations:
+
++-----+--------+
+| Row | Column |
++-----+--------+
+| 3   | 6      |
+| 3   | 7      |
+| 4   | 6      |
+| 5   | 4      |
+| 5   | 6      |
++-----+--------+
+```
+
+The command also displays the grid with probable item locations marked using `$`.
+
+### Run with Exact Steps
+
+```bash
+php artisan hidden-item:solve --up=1 --right=2 --down=1
+```
+
+Example output:
+
+```txt
+Probable item locations:
+
++-----+--------+
+| Row | Column |
++-----+--------+
+| 5   | 4      |
++-----+--------+
+```
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Al-gast/fomotoko-fullstack-engineer-assessment.git
+cd fomotoko-fullstack-engineer-assessment
+```
+
+Install dependencies:
+
+```bash
+composer install
+```
+
+Create the environment file:
+
+```bash
+cp .env.example .env
+```
+
+Generate the application key:
+
+```bash
+php artisan key:generate
+```
+
+Configure the PostgreSQL database connection in `.env`:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=
+DB_PORT=5432
+DB_DATABASE=postgres
+DB_USERNAME=
+DB_PASSWORD=
+DB_SSLMODE=require
+```
+
+Run migrations:
+
+```bash
+php artisan migrate
+```
+
+Seed sample products:
+
+```bash
+php artisan db:seed
+```
+
+Start the local server:
+
+```bash
+php artisan serve
+```
+
+Local API base URL:
+
+```txt
+http://127.0.0.1:8000
+```
+
+## Useful Commands
+
+List registered routes:
+
+```bash
+php artisan route:list
+```
+
+Run the race condition test:
+
+```bash
+php artisan test:race-condition --requests=50 --stock=10 --quantity=1 --concurrency=5
+```
+
+Run the Hidden Item solver:
+
+```bash
+php artisan hidden-item:solve
+```
+
+Run the Hidden Item solver with exact steps:
+
+```bash
+php artisan hidden-item:solve --up=1 --right=2 --down=1
+```
+
+## Notes
+
+- Supabase is used only as a PostgreSQL database provider.
+- API logic, validation, transaction handling, and race condition protection are implemented in Laravel.
+- `.env` is ignored and should not be committed.
