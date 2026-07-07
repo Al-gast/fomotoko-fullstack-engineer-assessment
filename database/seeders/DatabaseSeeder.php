@@ -2,17 +2,31 @@
 
 namespace Database\Seeders;
 
+use App\Models\Product;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     *
-     * @return void
-     */
-    public function run()
+    public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // Produk utama untuk simulasi flash sale dan race condition.
+        Product::updateOrCreate(
+            ['name' => 'Flash Sale Product'],
+            [
+                'price' => 100000,
+                'sale_price' => 25000,
+                'stock' => 10,
+            ]
+        );
+
+        // Produk biasa untuk cek endpoint secara normal.
+        Product::updateOrCreate(
+            ['name' => 'Regular Product'],
+            [
+                'price' => 75000,
+                'sale_price' => null,
+                'stock' => 50,
+            ]
+        );
     }
 }
